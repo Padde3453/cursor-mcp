@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stable Network Mesh</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    .connection-point {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px currentColor;
+      z-index: 10;
+    }
+    .glow {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.3;
+      filter: blur(15px);
+      transform: translate(-50%, -50%);
+      z-index: 1;
+    }
+    .connection-line {
+      position: absolute;
+      height: 2px;
+      background: currentColor;
+      transform-origin: 0 50%;
+      z-index: 5;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.1); }
+    }
+    .pulse {
+      animation: pulse 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="network-container" class="w-full h-full relative"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('network-container');
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      const pointRadius = 8;
+      const numPoints = 15;
+      const fixedCount = 4;
+      const maxSpeed = 1.5;
+      const colors = ['#3b82f6', '#10b981'];
+      const connectionThreshold = 300;
+
+      const points = [];
+      const connections = [];
+
+      // Create Points
+      for (let i = 0; i < numPoints; i++) {
+        const isFixed = i < fixedCount;
+        const x = isFixed ? width - pointRadius * 2 : Math.random() * (width - pointRadius * 4) + pointRadius * 2;
+        const y = isFixed ? ((height / (fixedCount + 1)) * (i + 1)) : Math.random() * (height - pointRadius * 4) + pointRadius * 2;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+
+        const el = document.createElement('div');
+        el.className = 'connection-point';
+        el.style.backgroundColor = color;
+        el.style.color = color;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        container.appendChild(el);
+
+        const glow = document.createElement('div');
+        glow.className = 'glow pulse';
+        glow.style.backgroundColor = color;
+        glow.style.width = `${pointRadius * 3}px`;
+        glow.style.height = `${pointRadius * 3}px`;
+        glow.style.left = `${x}px`;
+        glow.style.top = `${y}px`;
+        container.appendChild(glow);
+
+        points.push({
+          x,
+          y,
+          vx: isFixed ? 0 : (Math.random() - 0.5) * maxSpeed,
+          vy: isFixed ? 0 : (Math.random() - 0.5) * maxSpeed,
+          isFixed,
+          element: el,
+          glow: glow
+        });
+      }
+
+      // Create static connections and store them once
+      for (let i = 0; i < numPoints; i++) {
+        for (let j = i + 1; j < numPoints; j++) {
+          const dist = distance(points[i], points[j]);
+          if (dist < connectionThreshold) {
+            const line = document.createElement('div');
+            line.className = 'connection-line';
+            line.style.color = points[i].element.style.color;
+            container.appendChild(line);
+            connections.push({ from: i, to: j, element: line });
+          }
+        }
+      }
+
+      function distance(p1, p2) {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function animate() {
+        // Update point positions
+        for (const point of points) {
+          if (!point.isFixed) {
+            point.x += point.vx;
+            point.y += point.vy;
+
+            if (point.x < pointRadius || point.x > width - pointRadius) {
+              point.vx *= -0.8;
+              point.x = Math.max(pointRadius, Math.min(width - pointRadius, point.x));
+            }
+
+            if (point.y < pointRadius || point.y > height - pointRadius) {
+              point.vy *= -0.8;
+              point.y = Math.max(pointRadius, Math.min(height - pointRadius, point.y));
+            }
+
+            // Small random movement
+            if (Math.random() < 0.02) {
+              point.vx += (Math.random() - 0.5) * 0.5;
+              point.vy += (Math.random() - 0.5) * 0.5;
+              const speed = Math.sqrt(point.vx * point.vx + point.vy * point.vy);
+              if (speed > maxSpeed) {
+                point.vx = (point.vx / speed) * maxSpeed;
+                point.vy = (point.vy / speed) * maxSpeed;
+              }
+            }
+          }
+
+          point.element.style.left = `${point.x}px`;
+          point.element.style.top = `${point.y}px`;
+          point.glow.style.left = `${point.x}px`;
+          point.glow.style.top = `${point.y}px`;
+        }
+
+        // Update connections
+        for (const conn of connections) {
+          const p1 = points[conn.from];
+          const p2 = points[conn.to];
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+          conn.element.style.width = `${length}px`;
+          conn.element.style.left = `${p1.x}px`;
+          conn.element.style.top = `${p1.y}px`;
+          conn.element.style.transform = `rotate(${angle}deg)`;
+        }
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    });
+  </script>
+</body>
+</html>
